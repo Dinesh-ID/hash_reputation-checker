@@ -1,0 +1,52 @@
+# Define your VirusTotal API key
+$VTApiKey = "API-key"
+
+# Function to get the VirusTotal report for a given hash
+function Get-VirusTotalReport {
+    param (
+        [string]$ApiKey,
+        [string]$Hash
+    )
+
+    $url = "https://www.virustotal.com/api/v3/files/$Hash"
+    $headers = @{
+        "x-apikey" = $ApiKey
+    }
+
+    try {
+        $response = Invoke-RestMethod -Uri $url -Headers $headers -Method Get
+        return $response
+    } catch {
+        Write-Error "Failed to get the report for hash $Hash $_"
+    }
+}
+
+# Function to check if Microsoft Defender has detected the file
+function Check-DefenderDetection {
+    param (
+        [object]$Report
+    )
+
+    if ($Report.data.attributes.last_analysis_results."Microsoft") {
+        $defenderResult = $Report.data.attributes.last_analysis_results."Microsoft"
+        return $defenderResult.result
+    } else {
+        return "No detection information available for Microsoft Defender."
+    }
+}
+
+# Read hashes from the file
+$hashes = Get-Content -Path "filepath"
+
+# Process each hash
+foreach ($hash in $hashes) {
+    Write-Output "Checking hash : $hash"
+    $report = Get-VirusTotalReport -ApiKey $VTApiKey -Hash $hash
+
+    if ($report) {
+        $defenderDetection = Check-DefenderDetection -Report $report
+        Write-Output "Microsoft Defender detection result for $hash : $defenderDetection \n"
+    } else {
+        Write-Output "No report found for hash: $hash"
+    }
+}
